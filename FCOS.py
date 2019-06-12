@@ -38,9 +38,6 @@ class FCOS:
             if data_provider['val_generator'] is not None:
                 self.val_generator = data_provider['val_generator']
                 self.val_initializer, self.val_iterator = self.val_generator
-        else:
-            self.score_threshold = config['score_threshold']
-            self.top_k_results_output = config['top_k_results_output']
 
         self.global_step = tf.get_variable(name='global_step', initializer=tf.constant(0), trainable=False)
         self.is_training = True
@@ -63,10 +60,10 @@ class FCOS:
         if self.mode == 'train':
             self.images, self.ground_truth = self.train_iterator.get_next()
             self.images.set_shape(shape)
-            self.images = self.images / 255. - mean
+            self.images = self.images - mean
         else:
             self.images = tf.placeholder(tf.float32, shape, name='images')
-            self.images = self.images / 255. - mean
+            self.images = self.images - mean
             self.ground_truth = tf.placeholder(tf.float32, [self.batch_size, None, 5], name='labels')
         self.lr = tf.placeholder(dtype=tf.float32, shape=[], name='lr')
 
