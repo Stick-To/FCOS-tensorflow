@@ -316,10 +316,10 @@ class FCOS:
         dist_pred_r = dist_pred[..., 1]
         dist_pred_t = dist_pred[..., 2]
         dist_pred_b = dist_pred[..., 3]
-        inter_width = tf.minimum(dist_l+dist_r, dist_pred_l+dist_pred_r)
-        inter_height = tf.minimum(dist_t+dist_b, dist_pred_t+dist_pred_b)
-        union_width = tf.maximum(dist_l+dist_r, dist_pred_l+dist_pred_r)
-        union_height = tf.maximum(dist_t+dist_b, dist_pred_t+dist_pred_b)
+        inter_width = tf.minimum(dist_l, dist_pred_l) + tf.minimum(dist_r, dist_pred_r)
+        inter_height = tf.minimum(dist_t, dist_pred_t) + tf.minimum(dist_b, dist_pred_b)
+        union_width = tf.maximum(dist_l, dist_pred_l) + tf.maximum(dist_r, dist_pred_r)
+        union_height = tf.maximum(dist_t, dist_pred_t) + tf.maximum(dist_b, dist_pred_b)
         iou_loss = tf.log(union_width*union_height+1e-12) - tf.log(inter_width*inter_height+1e-12)
         iou_loss = tf.reduce_sum(iou_loss) / tf.cast(num_g, tf.float32)
 
