@@ -13,13 +13,13 @@ import os
 # os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 # os.environ['CUDA_VISIBLE_DEVICES'] = '2'
 lr = 0.01
-batch_size = 2
+batch_size = 1
 buffer_size = 12
 epochs = 160
 reduce_lr_epoch = []
 config = {
     'mode': 'train',                                       # 'train', 'test'
-    'input_size': 384,
+    'data_shape': [800, 1200, 3],
     'data_format': 'channels_last',                        # 'channels_last' 'channels_first'
     'num_classes': 20,
     'weight_decay': 1e-4,
@@ -33,7 +33,7 @@ config = {
 
 image_augmentor_config = {
     'data_format': 'channels_last',
-    'output_shape': [384, 384],
+    'output_shape': [800, 1200],
     # 'zoom_size': [400, 400],
     # 'crop_method': 'random',
     'flip_prob': [0., 0.5],
@@ -49,15 +49,15 @@ data = [os.path.join('./voc2007/', name) for name in data]
 train_gen = voc_utils.get_generator(data,
                                     batch_size, buffer_size, image_augmentor_config)
 trainset_provider = {
-    'data_shape': [384, 384, 3],
+    'data_shape': [800, 1200, 3],
     'num_train': 100,
     'num_val': 0,                                         # not used
     'train_generator': train_gen,
     'val_generator': None                                 # not used
 }
 fcos = net.FCOS(config, trainset_provider)
-# fcos.load_weight('./centernet/test-8350')
-# fcos.load_pretrained_weight('./centernet/test-8350')
+# fcos.load_weight('./fcos/test-8350')
+# fcos.load_pretrained_weight('./fcos/test-8350')
 for i in range(epochs):
     print('-'*25, 'epoch', i, '-'*25)
     if i in reduce_lr_epoch:

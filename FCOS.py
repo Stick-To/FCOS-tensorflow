@@ -15,11 +15,7 @@ class FCOS:
         assert config['data_format'] in ['channels_first', 'channels_last']
         self.config = config
         self.data_provider = data_provider
-        self.input_size = config['input_size']
-        if config['data_format'] == 'channels_last':
-            self.data_shape = [self.input_size, self.input_size, 3]
-        else:
-            self.data_shape = [3, self.input_size, self.input_size]
+        self.data_shape = config['data_shape']
         self.num_classes = config['num_classes']
         self.weight_decay = config['weight_decay']
         self.prob = 1. - config['keep_prob']
@@ -300,17 +296,17 @@ class FCOS:
         dist_b *= mask
         dist_area = (dist_l + dist_r) * (dist_t + dist_b)
         dist_area_max = tf.reduce_max(dist_area)
-        dist_area_ = tf.cast(tf.equal(dist_area, 0.), tf.float32)*(dist_area_max+1.)
+        dist_area_ = dist_area + tf.cast(tf.equal(dist_area, 0.), tf.float32)*(dist_area_max+1.)
         dist_area_min = tf.reduce_min(dist_area_, axis=-1, keepdims=True)
         dist_mask = tf.cast(dist_area == dist_area_min, tf.float32)
         dist_l *= dist_mask
         dist_r *= dist_mask
         dist_t *= dist_mask
         dist_b *= dist_mask
-        dist_l = tf.reduce_min(dist_l, axis=-1)
-        dist_r = tf.reduce_min(dist_r, axis=-1)
-        dist_t = tf.reduce_min(dist_t, axis=-1)
-        dist_b = tf.reduce_min(dist_b, axis=-1)
+        dist_l = tf.reduce_max(dist_l, axis=-1)
+        dist_r = tf.reduce_max(dist_r, axis=-1)
+        dist_t = tf.reduce_max(dist_t, axis=-1)
+        dist_b = tf.reduce_max(dist_b, axis=-1)
         dist_pred *= tf.expand_dims(tf.expand_dims(tf.cast(dist_l > 0., tf.float32), axis=0), axis=-1)
         dist_pred_l = dist_pred[..., 0]
         dist_pred_r = dist_pred[..., 1]
@@ -320,14 +316,16 @@ class FCOS:
         inter_height = tf.minimum(dist_t, dist_pred_t) + tf.minimum(dist_b, dist_pred_b)
         union_width = tf.maximum(dist_l, dist_pred_l) + tf.maximum(dist_r, dist_pred_r)
         union_height = tf.maximum(dist_t, dist_pred_t) + tf.maximum(dist_b, dist_pred_b)
-        iou_loss = tf.log(union_width*union_height+1e-12) - tf.log(inter_width*inter_height+1e-12)
+        iou = inter_width*inter_height / (union_width*union_height+1e-12)
+        iou = iou + tf.cast(tf.equal(iou, 0.), tf.float32)
+        iou_loss = -tf.log(iou)
         iou_loss = tf.reduce_sum(iou_loss) / tf.cast(num_g, tf.float32)
 
         lr_min = tf.minimum(dist_l, dist_r)
         tb_min = tf.minimum(dist_t, dist_b)
         lr_max = tf.maximum(dist_l, dist_r)
         tb_max = tf.maximum(dist_t, dist_b)
-        center_gt = tf.sqrt(lr_min*tb_min/(lr_max*tb_max+1e-12))
+        center_gt = tf.expand_dims(tf.sqrt(lr_min*tb_min/(lr_max*tb_max+1e-12)), axis=-1)
         center_loss = -center_gt*tf.log(center_pred+1e-12) - (1.-center_gt)*tf.log(1.-center_pred+1e-12)
         center_loss = tf.reduce_sum(center_loss) / tf.cast(num_g, tf.float32)
 
