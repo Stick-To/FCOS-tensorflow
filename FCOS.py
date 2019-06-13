@@ -248,7 +248,6 @@ class FCOS:
                     scoresi = tf.boolean_mask(pconf[:, i], filter_mask[:, i])
                     bboxi = tf.boolean_mask(pbbox, filter_mask[:, i])
                     selected_indices = tf.image.non_max_suppression(
-
                         bboxi, scoresi, self.nms_max_boxes, self.nms_iou_threshold,
                     )
                     scores.append(tf.gather(scoresi, selected_indices))
@@ -293,9 +292,9 @@ class FCOS:
         dist_b *= mask
         dist_area = (dist_l + dist_r) * (dist_t + dist_b)
         dist_area_max = tf.reduce_max(dist_area)
-        dist_area_ = dist_area + tf.cast(tf.equal(dist_area, 0.), tf.float32)*(dist_area_max+1.)
+        dist_area_ = dist_area + tf.cast(tf.equal(dist_area, 0.), tf.float32) * (dist_area_max+1.)
         dist_area_min = tf.reduce_min(dist_area_, axis=-1, keepdims=True)
-        dist_mask = tf.cast(dist_area == dist_area_min, tf.float32)
+        dist_mask = tf.cast(tf.equal(dist_area, dist_area_min), tf.float32)
         dist_l *= dist_mask
         dist_r *= dist_mask
         dist_t *= dist_mask
@@ -316,7 +315,7 @@ class FCOS:
         iou = inter_area / (union_area+1e-12)
         iou = iou + tf.cast(tf.equal(iou, 0.), tf.float32)
         iou_loss = -tf.log(iou)
-        iou_loss = tf.reduce_sum(iou_loss) / tf.cast(num_g, tf.float32)
+        iou_loss = tf.reduce_sum(iou_loss)
 
         lr_min = tf.minimum(dist_l, dist_r)
         tb_min = tf.minimum(dist_t, dist_b)
@@ -324,7 +323,7 @@ class FCOS:
         tb_max = tf.maximum(dist_t, dist_b)
         center_gt = tf.expand_dims(tf.sqrt(lr_min*tb_min/(lr_max*tb_max+1e-12)), axis=-1)
         center_loss = -center_gt*tf.log(center_pred+1e-12) - (1.-center_gt)*tf.log(1.-center_pred+1e-12)
-        center_loss = tf.reduce_sum(center_loss) / tf.cast(num_g, tf.float32)
+        center_loss = tf.reduce_sum(center_loss)
 
         zero_like_heat = tf.expand_dims(tf.zeros(pshape, dtype=tf.float32), axis=-1)
         heatmap = []
@@ -340,8 +339,9 @@ class FCOS:
         heatmap = tf.concat(heatmap, axis=-1)
         heatmap_pos_loss = -.25 * tf.pow(1.-heatmap_pred, 2.) * tf.log(heatmap_pred + 1e-12) * heatmap
         heatmap_neg_loss = -.25 * tf.pow(heatmap_pred, 2.) * tf.log(1.-heatmap_pred + 1e-12) * (1.-heatmap)
-        heatmap_loss = (tf.reduce_sum(heatmap_pos_loss) + tf.reduce_sum(heatmap_neg_loss)) / tf.cast(num_g, tf.float32)
-        return iou_loss + heatmap_loss + center_loss
+        heatmap_loss = tf.reduce_sum(heatmap_pos_loss) + tf.reduce_sum(heatmap_neg_loss)
+        total_loss = (iou_loss + heatmap_loss + center_loss) / tf.reduce_sum(heatmap)
+        return total_loss
 
     def _detect_head(self, bottom):
         with tf.variable_scope('classifier_head', reuse=tf.AUTO_REUSE):
@@ -350,7 +350,7 @@ class FCOS:
             conv3 = self._bn_activation_conv(conv2, 256, 3, 1)
             conv4 = self._bn_activation_conv(conv3, 256, 3, 1)
             pconf = tf.nn.sigmoid(self._bn_activation_conv(conv4, self.num_classes, 3, 1, pi_init=True))
-            pcenterness = tf.nn.sigmoid(self._bn_activation_conv(conv4, 1, 3, 1, pi_init=True))
+            pcenterness = tf.nn.sigmoid(self._bn_activation_conv(conv4, 1, 3, 1))
         with tf.variable_scope('regress_head', reuse=tf.AUTO_REUSE):
             conva = self._bn_activation_conv(bottom, 256, 3, 1)
             convb = self._bn_activation_conv(conva, 256, 3, 1)
