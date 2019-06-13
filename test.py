@@ -11,10 +11,10 @@ import os
 # from skimage import io, transform
 # from utils.voc_classname_encoder import classname_to_ids
 # os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
-# os.environ['CUDA_VISIBLE_DEVICES'] = '2'
+os.environ['CUDA_VISIBLE_DEVICES'] = '1'
 lr = 0.01
-batch_size = 1
-buffer_size = 12
+batch_size = 8
+buffer_size = 256
 epochs = 160
 reduce_lr_epoch = []
 config = {
@@ -50,7 +50,7 @@ train_gen = voc_utils.get_generator(data,
                                     batch_size, buffer_size, image_augmentor_config)
 trainset_provider = {
     'data_shape': [800, 1200, 3],
-    'num_train': 100,
+    'num_train': 5011,
     'num_val': 0,                                         # not used
     'train_generator': train_gen,
     'val_generator': None                                 # not used

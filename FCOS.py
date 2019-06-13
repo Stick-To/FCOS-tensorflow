@@ -155,12 +155,12 @@ class FCOS:
             [grid_x7, grid_y7] = tf.meshgrid(w7, h7)
 
             if self.mode == 'train':
-                total_loss = 0.
+                total_loss = []
                 for i in range(self.batch_size):
                     gt_i = self.ground_truth[i, ...]
                     slice_index = tf.argmin(gt_i, axis=0)[0]
                     gt_i = tf.gather(gt_i, tf.range(0, slice_index, dtype=tf.int64))
-                    gt_size = tf.sqrt(gt_i[..., 2] * gt_i[..., 3]+1e-12)
+                    gt_size = tf.sqrt(gt_i[..., 2] * gt_i[..., 3] + 1e-12)
                     g3 = tf.boolean_mask(gt_i, gt_size <= 64.)
                     g4 = tf.boolean_mask(gt_i, tf.cast(gt_size >= 64., tf.float32)*tf.cast(gt_size <= 128., tf.float32) > 0.)
                     g5 = tf.boolean_mask(gt_i, tf.cast(gt_size >= 128., tf.float32)*tf.cast(gt_size <= 256., tf.float32) > 0.)
@@ -168,32 +168,32 @@ class FCOS:
                     g7 = tf.boolean_mask(gt_i, gt_size >= 512.)
                     loss3 = tf.cond(
                         tf.shape(g3)[0] > 0,
-                        lambda: self._compute_one_image_loss(p3conf, p3reg, p3center, g3, grid_y3, grid_x3, s3, p3shape),
+                        lambda: self._compute_one_image_loss(p3conf[i, ...], p3reg[i, ...], p3center[i, ...], g3, grid_y3, grid_x3, s3, p3shape),
                         lambda: 0.
                     )
                     loss4 = tf.cond(
                         tf.shape(g4)[0] > 0,
-                        lambda: self._compute_one_image_loss(p4conf, p4reg, p4center, g4, grid_y4, grid_x4, s4, p4shape),
+                        lambda: self._compute_one_image_loss(p4conf[i, ...], p4reg[i, ...], p4center[i, ...], g4, grid_y4, grid_x4, s4, p4shape),
                         lambda: 0.
                     )
                     loss5 = tf.cond(
                         tf.shape(g5)[0] > 0,
-                        lambda: self._compute_one_image_loss(p5conf, p5reg, p5center, g5, grid_y5, grid_x5, s5, p5shape),
+                        lambda: self._compute_one_image_loss(p5conf[i, ...], p5reg[i, ...], p5center[i, ...], g5, grid_y5, grid_x5, s5, p5shape),
                         lambda: 0.
                     )
                     loss6 = tf.cond(
                         tf.shape(g6)[0] > 0,
-                        lambda: self._compute_one_image_loss(p6conf, p6reg, p6center, g6, grid_y6, grid_x6, s6, p6shape),
+                        lambda: self._compute_one_image_loss(p6conf[i, ...], p6reg[i, ...], p6center[i, ...], g6, grid_y6, grid_x6, s6, p6shape),
                         lambda: 0.
                     )
                     loss7 = tf.cond(
                         tf.shape(g7)[0] > 0,
-                        lambda: self._compute_one_image_loss(p7conf, p7reg, p7center, g7, grid_y7, grid_x7, s7, p7shape),
+                        lambda: self._compute_one_image_loss(p7conf[i, ...], p7reg[i, ...], p7center[i, ...], g7, grid_y7, grid_x7, s7, p7shape),
                         lambda: 0.
                     )
-                    total_loss = total_loss + loss3 + loss4 + loss5 + loss6 + loss7
-                self.loss = total_loss + self.weight_decay * tf.add_n(
-                    [tf.nn.l2_loss(var) for var in tf.trainable_variables()])
+                    total_loss.append(loss3 + loss4 + loss5 + loss6 + loss7)
+                self.loss = tf.reduce_mean(total_loss) + self.weight_decay * tf.add_n(
+                            [tf.nn.l2_loss(var) for var in tf.trainable_variables()])
                 optimizer = tf.train.MomentumOptimizer(self.lr, momentum=0.9)
                 update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
                 train_op = optimizer.minimize(self.loss, global_step=self.global_step)
@@ -304,16 +304,16 @@ class FCOS:
         dist_r = tf.reduce_max(dist_r, axis=-1)
         dist_t = tf.reduce_max(dist_t, axis=-1)
         dist_b = tf.reduce_max(dist_b, axis=-1)
-        dist_pred *= tf.expand_dims(tf.expand_dims(tf.cast(dist_l > 0., tf.float32), axis=0), axis=-1)
+        dist_pred *= tf.expand_dims(tf.cast(dist_l > 0., tf.float32), axis=-1)
         dist_pred_l = dist_pred[..., 0]
         dist_pred_r = dist_pred[..., 1]
         dist_pred_t = dist_pred[..., 2]
         dist_pred_b = dist_pred[..., 3]
         inter_width = tf.minimum(dist_l, dist_pred_l) + tf.minimum(dist_r, dist_pred_r)
         inter_height = tf.minimum(dist_t, dist_pred_t) + tf.minimum(dist_b, dist_pred_b)
-        union_width = tf.maximum(dist_l, dist_pred_l) + tf.maximum(dist_r, dist_pred_r)
-        union_height = tf.maximum(dist_t, dist_pred_t) + tf.maximum(dist_b, dist_pred_b)
-        iou = inter_width*inter_height / (union_width*union_height+1e-12)
+        inter_area = inter_width * inter_height
+        union_area = (dist_l+dist_r)*(dist_t+dist_b) + (dist_pred_l+dist_pred_r)*(dist_pred_t+dist_pred_b) - inter_area
+        iou = inter_area / (union_area+1e-12)
         iou = iou + tf.cast(tf.equal(iou, 0.), tf.float32)
         iou_loss = -tf.log(iou)
         iou_loss = tf.reduce_sum(iou_loss) / tf.cast(num_g, tf.float32)
