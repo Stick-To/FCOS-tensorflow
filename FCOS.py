@@ -338,8 +338,8 @@ class FCOS:
             )
             heatmap.append(heatmap_i)
         heatmap = tf.concat(heatmap, axis=-1)
-        heatmap_pos_loss = -2.0 * tf.pow(1.-heatmap_pred, 0.25) * tf.log(heatmap_pred + 1e-12) * heatmap
-        heatmap_neg_loss = -2.0 * tf.pow(heatmap_pred, 0.25) * tf.log(1.-heatmap_pred + 1e-12) * (1.-heatmap)
+        heatmap_pos_loss = -.25 * tf.pow(1.-heatmap_pred, 2.) * tf.log(heatmap_pred + 1e-12) * heatmap
+        heatmap_neg_loss = -.25 * tf.pow(heatmap_pred, 2.) * tf.log(1.-heatmap_pred + 1e-12) * (1.-heatmap)
         heatmap_loss = (tf.reduce_sum(heatmap_pos_loss) + tf.reduce_sum(heatmap_neg_loss)) / tf.cast(num_g, tf.float32)
         return iou_loss + heatmap_loss + center_loss
 
