@@ -40,7 +40,8 @@ image_augmentor_config = {
     'fill_mode': 'BILINEAR',
     'keep_aspect_ratios': False,
     # 'constant_values': 0.,
-    # 'rotate_range': [-5., 5.],
+    # 'color_jitter_prob': 0.5,
+    # 'rotate': [0.5, -10., 10.],
     'pad_truth_to': 60,
 }
 data = os.listdir('./voc2007/')
@@ -56,7 +57,7 @@ trainset_provider = {
     'val_generator': None                                 # not used
 }
 fcos = net.FCOS(config, trainset_provider)
-# fcos.load_weight('./fcos/test-8350')
+# fcos.load_weight('./fcos/test-1878')
 # fcos.load_pretrained_weight('./fcos/test-8350')
 for i in range(epochs):
     print('-'*25, 'epoch', i, '-'*25)
@@ -79,7 +80,7 @@ for i in range(epochs):
 # plt.imshow(np.squeeze(img))
 # axis = plt.gca()
 # for i in range(len(scores)):
-#     rect = patches.Rectangle((bbox[i][1],bbox[i][0]), bbox[i][3]-bbox[i][1],bbox[i][2]-bbox[i][0],linewidth=2,edgecolor='b',facecolor='none')
+#     rect = patches.Rectangle((bbox[i][1],bbox[i][0]), bbox[i][3]-bbox[i][1],bbox[i][2]-bbox[i][0],linewidth=1,edgecolor='c',facecolor='none')
 #     axis.add_patch(rect)
 #     plt.text(bbox[i][1],bbox[i][0], id_to_clasname[class_id[i]]+str(' ')+str(scores[i]), color='red', fontsize=12)
 # plt.show()

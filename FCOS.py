@@ -212,32 +212,32 @@ class FCOS:
                 p6reg = p6reg[0, ...]
                 p7reg = p7reg[0, ...]
 
-                p3_y1 = grid_y3 - p3reg[..., 2:3]
-                p3_y2 = grid_y3 + p3reg[..., 3:4]
-                p3_x1 = grid_x3 - p3reg[..., 0:1]
-                p3_x2 = grid_x3 + p3reg[..., 1:2]
-                p4_y1 = grid_y4 - p4reg[..., 2:3]
-                p4_y2 = grid_y4 + p4reg[..., 3:4]
-                p4_x1 = grid_x4 - p4reg[..., 0:1]
-                p4_x2 = grid_x4 + p4reg[..., 1:2]
-                p5_y1 = grid_y5 - p5reg[..., 2:3]
-                p5_y2 = grid_y5 + p5reg[..., 3:4]
-                p5_x1 = grid_x5 - p5reg[..., 0:1]
-                p5_x2 = grid_x5 + p5reg[..., 1:2]
-                p6_y1 = grid_y6 - p6reg[..., 2:3]
-                p6_y2 = grid_y6 + p6reg[..., 3:4]
-                p6_x1 = grid_x6 - p6reg[..., 0:1]
-                p6_x2 = grid_x6 + p6reg[..., 1:2]
-                p7_y1 = grid_y7 - p7reg[..., 2:3]
-                p7_y2 = grid_y7 + p7reg[..., 3:4]
-                p7_x1 = grid_x7 - p7reg[..., 0:1]
-                p7_x2 = grid_x7 + p7reg[..., 1:2]
+                p3_y1 = grid_y3 - p3reg[..., 2]
+                p3_y2 = grid_y3 + p3reg[..., 3]
+                p3_x1 = grid_x3 - p3reg[..., 0]
+                p3_x2 = grid_x3 + p3reg[..., 1]
+                p4_y1 = grid_y4 - p4reg[..., 2]
+                p4_y2 = grid_y4 + p4reg[..., 3]
+                p4_x1 = grid_x4 - p4reg[..., 0]
+                p4_x2 = grid_x4 + p4reg[..., 1]
+                p5_y1 = grid_y5 - p5reg[..., 2]
+                p5_y2 = grid_y5 + p5reg[..., 3]
+                p5_x1 = grid_x5 - p5reg[..., 0]
+                p5_x2 = grid_x5 + p5reg[..., 1]
+                p6_y1 = grid_y6 - p6reg[..., 2]
+                p6_y2 = grid_y6 + p6reg[..., 3]
+                p6_x1 = grid_x6 - p6reg[..., 0]
+                p6_x2 = grid_x6 + p6reg[..., 1]
+                p7_y1 = grid_y7 - p7reg[..., 2]
+                p7_y2 = grid_y7 + p7reg[..., 3]
+                p7_x1 = grid_x7 - p7reg[..., 0]
+                p7_x2 = grid_x7 + p7reg[..., 1]
 
-                p3bbox = tf.reshape(tf.concat([p3_y1, p3_x1, p3_y2, p3_x2], axis=-1), [-1, 4])
-                p4bbox = tf.reshape(tf.concat([p4_y1, p4_x1, p4_y2, p4_x2], axis=-1), [-1, 4])
-                p5bbox = tf.reshape(tf.concat([p5_y1, p5_x1, p5_y2, p5_x2], axis=-1), [-1, 4])
-                p6bbox = tf.reshape(tf.concat([p6_y1, p6_x1, p6_y2, p6_x2], axis=-1), [-1, 4])
-                p7bbox = tf.reshape(tf.concat([p7_y1, p7_x1, p7_y2, p7_x2], axis=-1), [-1, 4])
+                p3bbox = tf.reshape(tf.concat([p3_y1, p3_x1, p3_y2, p3_x2], axis=-1), [-1, 4]) * s3
+                p4bbox = tf.reshape(tf.concat([p4_y1, p4_x1, p4_y2, p4_x2], axis=-1), [-1, 4]) * s4
+                p5bbox = tf.reshape(tf.concat([p5_y1, p5_x1, p5_y2, p5_x2], axis=-1), [-1, 4]) * s5
+                p6bbox = tf.reshape(tf.concat([p6_y1, p6_x1, p6_y2, p6_x2], axis=-1), [-1, 4]) * s6
+                p7bbox = tf.reshape(tf.concat([p7_y1, p7_x1, p7_y2, p7_x2], axis=-1), [-1, 4]) * s7
                 pbbox = tf.concat([p3bbox, p4bbox, p5bbox, p6bbox, p7bbox], axis=0)
 
                 filter_mask = tf.greater_equal(pconf, self.nms_score_threshold)
@@ -285,14 +285,13 @@ class FCOS:
         dist_b = gbbox_y2 - grid_y
         grid_y_mask = tf.cast(dist_t > 0., tf.float32) * tf.cast(dist_b > 0., tf.float32)
         grid_x_mask = tf.cast(dist_l > 0., tf.float32) * tf.cast(dist_r > 0., tf.float32)
-        mask = grid_y_mask * grid_x_mask
-        dist_l *= mask
-        dist_r *= mask
-        dist_t *= mask
-        dist_b *= mask
+        heatmask = grid_y_mask * grid_x_mask
+        dist_l *= heatmask
+        dist_r *= heatmask
+        dist_t *= heatmask
+        dist_b *= heatmask
         dist_area = (dist_l + dist_r) * (dist_t + dist_b)
-        dist_area_max = tf.reduce_max(dist_area)
-        dist_area_ = dist_area + tf.cast(tf.equal(dist_area, 0.), tf.float32) * (dist_area_max+1.)
+        dist_area_ = dist_area + tf.cast(tf.equal(dist_area, 0.), tf.float32) * 1e8
         dist_area_min = tf.reduce_min(dist_area_, axis=-1, keepdims=True)
         dist_mask = tf.cast(tf.equal(dist_area, dist_area_min), tf.float32)
         dist_l *= dist_mask
@@ -313,34 +312,37 @@ class FCOS:
         inter_area = inter_width * inter_height
         union_area = (dist_l+dist_r)*(dist_t+dist_b) + (dist_pred_l+dist_pred_r)*(dist_pred_t+dist_pred_b) - inter_area
         iou = inter_area / (union_area+1e-12)
-        iou = iou + tf.cast(tf.equal(iou, 0.), tf.float32)
-        iou_loss = -tf.log(iou)
-        iou_loss = tf.reduce_sum(iou_loss)
+        iou += tf.cast(tf.equal(iou, 0.), tf.float32)
+        iou_loss = tf.reduce_sum(-tf.log(iou))
 
         lr_min = tf.minimum(dist_l, dist_r)
         tb_min = tf.minimum(dist_t, dist_b)
         lr_max = tf.maximum(dist_l, dist_r)
         tb_max = tf.maximum(dist_t, dist_b)
         center_gt = tf.expand_dims(tf.sqrt(lr_min*tb_min/(lr_max*tb_max+1e-12)), axis=-1)
-        center_loss = -center_gt*tf.log(center_pred+1e-12) - (1.-center_gt)*tf.log(1.-center_pred+1e-12)
-        center_loss = tf.reduce_sum(center_loss)
+        center_pred = tf.clip_by_value(center_pred, 1e-12, 1.)
+        center_pos_loss = -center_gt*tf.log(center_pred) * (tf.cast(center_gt > 0., tf.float32))
+        center_neg_loss = -(1.-center_gt)*tf.log(1.-center_pred) * (tf.cast(center_gt <= 0., tf.float32))
+        center_loss = tf.reduce_sum(center_pos_loss) + tf.reduce_sum(center_neg_loss)
+        # center_loss = tf.square(center_pred - center_gt)
 
         zero_like_heat = tf.expand_dims(tf.zeros(pshape, dtype=tf.float32), axis=-1)
-        heatmap = []
+        heatmap_gt = []
         for i in range(self.num_classes):
             exist_i = tf.equal(class_id, i)
-            mask_i = tf.boolean_mask(mask, exist_i, axis=2)
+            heatmask_i = tf.boolean_mask(heatmask, exist_i, axis=2)
             heatmap_i = tf.cond(
-                tf.equal(tf.shape(mask_i)[-1], 0),
+                tf.equal(tf.shape(heatmask_i)[-1], 0),
                 lambda: zero_like_heat,
-                lambda: tf.reduce_max(mask_i, axis=2, keepdims=True)
+                lambda: tf.reduce_max(heatmask_i, axis=2, keepdims=True)
             )
-            heatmap.append(heatmap_i)
-        heatmap = tf.concat(heatmap, axis=-1)
-        heatmap_pos_loss = -.25 * tf.pow(1.-heatmap_pred, 2.) * tf.log(heatmap_pred + 1e-12) * heatmap
-        heatmap_neg_loss = -.25 * tf.pow(heatmap_pred, 2.) * tf.log(1.-heatmap_pred + 1e-12) * (1.-heatmap)
+            heatmap_gt.append(heatmap_i)
+        heatmap_gt = tf.concat(heatmap_gt, axis=-1)
+        heatmap_pred = tf.clip_by_value(heatmap_pred, 1e-12, 1.)
+        heatmap_pos_loss = -.25 * tf.pow(1.-heatmap_pred, 2.) * tf.log(heatmap_pred) * heatmap_gt
+        heatmap_neg_loss = -.25 * tf.pow(heatmap_pred, 2.) * tf.log(1.-heatmap_pred) * (1.-heatmap_gt)
         heatmap_loss = tf.reduce_sum(heatmap_pos_loss) + tf.reduce_sum(heatmap_neg_loss)
-        total_loss = (iou_loss + heatmap_loss + center_loss) / tf.reduce_sum(heatmap)
+        total_loss = (iou_loss + heatmap_loss + center_loss) / tf.reduce_sum(heatmap_gt)
         return total_loss
 
     def _detect_head(self, bottom):
@@ -350,7 +352,7 @@ class FCOS:
             conv3 = self._bn_activation_conv(conv2, 256, 3, 1)
             conv4 = self._bn_activation_conv(conv3, 256, 3, 1)
             pconf = tf.nn.sigmoid(self._bn_activation_conv(conv4, self.num_classes, 3, 1, pi_init=True))
-            pcenterness = tf.nn.sigmoid(self._bn_activation_conv(conv4, 1, 3, 1))
+            pcenterness = tf.nn.sigmoid(self._bn_activation_conv(conv4, 1, 3, 1, pi_init=True))
         with tf.variable_scope('regress_head', reuse=tf.AUTO_REUSE):
             conva = self._bn_activation_conv(bottom, 256, 3, 1)
             convb = self._bn_activation_conv(conva, 256, 3, 1)
