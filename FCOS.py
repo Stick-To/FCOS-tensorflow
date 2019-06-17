@@ -199,11 +199,11 @@ class FCOS:
                 train_op = optimizer.minimize(self.loss, global_step=self.global_step)
                 self.train_op = tf.group([update_ops, train_op])
             else:
-                p3conf = tf.reshape(p3conf[0, ...]*p3center[0, ...], [-1, self.num_classes])
-                p4conf = tf.reshape(p4conf[0, ...]*p4center[0, ...], [-1, self.num_classes])
-                p5conf = tf.reshape(p5conf[0, ...]*p5center[0, ...], [-1, self.num_classes])
-                p6conf = tf.reshape(p6conf[0, ...]*p6center[0, ...], [-1, self.num_classes])
-                p7conf = tf.reshape(p7conf[0, ...]*p7center[0, ...], [-1, self.num_classes])
+                p3conf = tf.reshape(tf.sigmoid(p3conf[0, ...])*tf.sigmoid(p3center[0, ...]), [-1, self.num_classes])
+                p4conf = tf.reshape(tf.sigmoid(p4conf[0, ...])*tf.sigmoid(p4center[0, ...]), [-1, self.num_classes])
+                p5conf = tf.reshape(tf.sigmoid(p5conf[0, ...])*tf.sigmoid(p5center[0, ...]), [-1, self.num_classes])
+                p6conf = tf.reshape(tf.sigmoid(p6conf[0, ...])*tf.sigmoid(p6center[0, ...]), [-1, self.num_classes])
+                p7conf = tf.reshape(tf.sigmoid(p7conf[0, ...])*tf.sigmoid(p7center[0, ...]), [-1, self.num_classes])
                 pconf = tf.concat([p3conf, p4conf, p5conf, p6conf, p7conf], axis=0)
 
                 p3reg = p3reg[0, ...]
@@ -320,9 +320,8 @@ class FCOS:
         lr_max = tf.maximum(dist_l, dist_r)
         tb_max = tf.maximum(dist_t, dist_b)
         center_gt = tf.expand_dims(tf.sqrt(lr_min*tb_min/(lr_max*tb_max+1e-12)), axis=-1)
-        center_pred = tf.clip_by_value(center_pred, 1e-12, 1.)
-        center_pos_loss = -center_gt*tf.log(center_pred) * (tf.cast(center_gt > 0., tf.float32))
-        center_neg_loss = -(1.-center_gt)*tf.log(1.-center_pred) * (tf.cast(center_gt <= 0., tf.float32))
+        center_pos_loss = -center_gt*tf.log_sigmoid(center_pred) * (tf.cast(center_gt > 0., tf.float32))
+        center_neg_loss = -(1.-center_gt)*(-center_pred+tf.log_sigmoid(center_pred)) * (tf.cast(center_gt <= 0., tf.float32))
         center_loss = tf.reduce_sum(center_pos_loss) + tf.reduce_sum(center_neg_loss)
         # center_loss = tf.square(center_pred - center_gt)
 
@@ -338,11 +337,10 @@ class FCOS:
             )
             heatmap_gt.append(heatmap_i)
         heatmap_gt = tf.concat(heatmap_gt, axis=-1)
-        heatmap_pred = tf.clip_by_value(heatmap_pred, 1e-12, 1.)
-        heatmap_pos_loss = -.25 * tf.pow(1.-heatmap_pred, 2.) * tf.log(heatmap_pred) * heatmap_gt
-        heatmap_neg_loss = -.25 * tf.pow(heatmap_pred, 2.) * tf.log(1.-heatmap_pred) * (1.-heatmap_gt)
+        heatmap_pos_loss = -.25 * tf.pow(1.-tf.sigmoid(heatmap_pred), 2.) * tf.log_sigmoid(heatmap_pred) * heatmap_gt
+        heatmap_neg_loss = -.25 * tf.pow(tf.sigmoid(heatmap_pred), 2.) * (-heatmap_pred+tf.log_sigmoid(heatmap_pred)) * (1.-heatmap_gt)
         heatmap_loss = tf.reduce_sum(heatmap_pos_loss) + tf.reduce_sum(heatmap_neg_loss)
-        total_loss = (iou_loss + heatmap_loss + center_loss) / tf.reduce_sum(heatmap_gt)
+        total_loss = (iou_loss + heatmap_loss  + center_loss) / tf.reduce_sum(heatmap_gt)
         return total_loss
 
     def _detect_head(self, bottom):
@@ -351,8 +349,8 @@ class FCOS:
             conv2 = self._bn_activation_conv(conv1, 256, 3, 1)
             conv3 = self._bn_activation_conv(conv2, 256, 3, 1)
             conv4 = self._bn_activation_conv(conv3, 256, 3, 1)
-            pconf = tf.nn.sigmoid(self._bn_activation_conv(conv4, self.num_classes, 3, 1, pi_init=True))
-            pcenterness = tf.nn.sigmoid(self._bn_activation_conv(conv4, 1, 3, 1, pi_init=True))
+            pconf = self._bn_activation_conv(conv4, self.num_classes, 3, 1, pi_init=True)
+            pcenterness = self._bn_activation_conv(conv4, 1, 3, 1, pi_init=True)
         with tf.variable_scope('regress_head', reuse=tf.AUTO_REUSE):
             conva = self._bn_activation_conv(bottom, 256, 3, 1)
             convb = self._bn_activation_conv(conva, 256, 3, 1)
