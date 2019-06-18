@@ -12,7 +12,7 @@ import os
 # from utils.voc_classname_encoder import classname_to_ids
 # os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 os.environ['CUDA_VISIBLE_DEVICES'] = '1'
-lr = 0.01
+lr = 0.0003
 batch_size = 8
 buffer_size = 256
 epochs = 160
@@ -57,7 +57,7 @@ trainset_provider = {
     'val_generator': None                                 # not used
 }
 fcos = net.FCOS(config, trainset_provider)
-# fcos.load_weight('./fcos/test-1878')
+fcos.load_weight('./fcos/test-95778')
 # fcos.load_pretrained_weight('./fcos/test-8350')
 for i in range(epochs):
     print('-'*25, 'epoch', i, '-'*25)

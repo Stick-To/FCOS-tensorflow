@@ -160,7 +160,7 @@ class FCOS:
                     gt_i = self.ground_truth[i, ...]
                     slice_index = tf.argmin(gt_i, axis=0)[0]
                     gt_i = tf.gather(gt_i, tf.range(0, slice_index, dtype=tf.int64))
-                    gt_size = tf.sqrt(gt_i[..., 2] * gt_i[..., 3] + 1e-12)
+                    gt_size = tf.sqrt(gt_i[..., 2] * gt_i[..., 3])
                     g3 = tf.boolean_mask(gt_i, gt_size <= 64.)
                     g4 = tf.boolean_mask(gt_i, tf.cast(gt_size >= 64., tf.float32)*tf.cast(gt_size <= 128., tf.float32) > 0.)
                     g5 = tf.boolean_mask(gt_i, tf.cast(gt_size >= 128., tf.float32)*tf.cast(gt_size <= 256., tf.float32) > 0.)
@@ -211,27 +211,37 @@ class FCOS:
                 p5reg = p5reg[0, ...]
                 p6reg = p6reg[0, ...]
                 p7reg = p7reg[0, ...]
+                grid_y3 = tf.expand_dims(grid_y3, axis=-1)
+                grid_x3 = tf.expand_dims(grid_x3, axis=-1)
+                grid_y4 = tf.expand_dims(grid_y4, axis=-1)
+                grid_x4 = tf.expand_dims(grid_x4, axis=-1)
+                grid_y5 = tf.expand_dims(grid_y5, axis=-1)
+                grid_x5 = tf.expand_dims(grid_x5, axis=-1)
+                grid_y6 = tf.expand_dims(grid_y6, axis=-1)
+                grid_x6 = tf.expand_dims(grid_x6, axis=-1)
+                grid_y7 = tf.expand_dims(grid_y7, axis=-1)
+                grid_x7 = tf.expand_dims(grid_x7, axis=-1)
 
-                p3_y1 = grid_y3 - p3reg[..., 2]
-                p3_y2 = grid_y3 + p3reg[..., 3]
-                p3_x1 = grid_x3 - p3reg[..., 0]
-                p3_x2 = grid_x3 + p3reg[..., 1]
-                p4_y1 = grid_y4 - p4reg[..., 2]
-                p4_y2 = grid_y4 + p4reg[..., 3]
-                p4_x1 = grid_x4 - p4reg[..., 0]
-                p4_x2 = grid_x4 + p4reg[..., 1]
-                p5_y1 = grid_y5 - p5reg[..., 2]
-                p5_y2 = grid_y5 + p5reg[..., 3]
-                p5_x1 = grid_x5 - p5reg[..., 0]
-                p5_x2 = grid_x5 + p5reg[..., 1]
-                p6_y1 = grid_y6 - p6reg[..., 2]
-                p6_y2 = grid_y6 + p6reg[..., 3]
-                p6_x1 = grid_x6 - p6reg[..., 0]
-                p6_x2 = grid_x6 + p6reg[..., 1]
-                p7_y1 = grid_y7 - p7reg[..., 2]
-                p7_y2 = grid_y7 + p7reg[..., 3]
-                p7_x1 = grid_x7 - p7reg[..., 0]
-                p7_x2 = grid_x7 + p7reg[..., 1]
+                p3_y1 = grid_y3 - p3reg[..., 2:3]
+                p3_y2 = grid_y3 + p3reg[..., 3:4]
+                p3_x1 = grid_x3 - p3reg[..., 0:1]
+                p3_x2 = grid_x3 + p3reg[..., 1:2]
+                p4_y1 = grid_y4 - p4reg[..., 2:3]
+                p4_y2 = grid_y4 + p4reg[..., 3:4]
+                p4_x1 = grid_x4 - p4reg[..., 0:1]
+                p4_x2 = grid_x4 + p4reg[..., 1:2]
+                p5_y1 = grid_y5 - p5reg[..., 2:3]
+                p5_y2 = grid_y5 + p5reg[..., 3:4]
+                p5_x1 = grid_x5 - p5reg[..., 0:1]
+                p5_x2 = grid_x5 + p5reg[..., 1:2]
+                p6_y1 = grid_y6 - p6reg[..., 2:3]
+                p6_y2 = grid_y6 + p6reg[..., 3:4]
+                p6_x1 = grid_x6 - p6reg[..., 0:1]
+                p6_x2 = grid_x6 + p6reg[..., 1:2]
+                p7_y1 = grid_y7 - p7reg[..., 2:3]
+                p7_y2 = grid_y7 + p7reg[..., 3:4]
+                p7_x1 = grid_x7 - p7reg[..., 0:1]
+                p7_x2 = grid_x7 + p7reg[..., 1:2]
 
                 p3bbox = tf.reshape(tf.concat([p3_y1, p3_x1, p3_y2, p3_x2], axis=-1), [-1, 4]) * s3
                 p4bbox = tf.reshape(tf.concat([p4_y1, p4_x1, p4_y2, p4_x2], axis=-1), [-1, 4]) * s4
@@ -290,10 +300,11 @@ class FCOS:
         dist_r *= heatmask
         dist_t *= heatmask
         dist_b *= heatmask
+        loc = tf.reduce_max(heatmask, axis=-1)
         dist_area = (dist_l + dist_r) * (dist_t + dist_b)
-        dist_area_ = dist_area + tf.cast(tf.equal(dist_area, 0.), tf.float32) * 1e8
+        dist_area_ = dist_area + (1. - heatmask) * 1e8
         dist_area_min = tf.reduce_min(dist_area_, axis=-1, keepdims=True)
-        dist_mask = tf.cast(tf.equal(dist_area, dist_area_min), tf.float32)
+        dist_mask = tf.cast(tf.equal(dist_area, dist_area_min), tf.float32) * tf.expand_dims(loc, axis=-1)
         dist_l *= dist_mask
         dist_r *= dist_mask
         dist_t *= dist_mask
@@ -302,7 +313,6 @@ class FCOS:
         dist_r = tf.reduce_max(dist_r, axis=-1)
         dist_t = tf.reduce_max(dist_t, axis=-1)
         dist_b = tf.reduce_max(dist_b, axis=-1)
-        dist_pred *= tf.expand_dims(tf.cast(dist_l > 0., tf.float32), axis=-1)
         dist_pred_l = dist_pred[..., 0]
         dist_pred_r = dist_pred[..., 1]
         dist_pred_t = dist_pred[..., 2]
@@ -312,16 +322,16 @@ class FCOS:
         inter_area = inter_width * inter_height
         union_area = (dist_l+dist_r)*(dist_t+dist_b) + (dist_pred_l+dist_pred_r)*(dist_pred_t+dist_pred_b) - inter_area
         iou = inter_area / (union_area+1e-12)
-        iou += tf.cast(tf.equal(iou, 0.), tf.float32)
-        iou_loss = tf.reduce_sum(-tf.log(iou))
+        iou_loss = tf.reduce_sum(-tf.log(iou+1e-12)*loc)
 
         lr_min = tf.minimum(dist_l, dist_r)
         tb_min = tf.minimum(dist_t, dist_b)
         lr_max = tf.maximum(dist_l, dist_r)
         tb_max = tf.maximum(dist_t, dist_b)
-        center_gt = tf.expand_dims(tf.sqrt(lr_min*tb_min/(lr_max*tb_max+1e-12)), axis=-1)
-        center_pos_loss = -center_gt*tf.log_sigmoid(center_pred) * (tf.cast(center_gt > 0., tf.float32))
-        center_neg_loss = -(1.-center_gt)*(-center_pred+tf.log_sigmoid(center_pred)) * (tf.cast(center_gt <= 0., tf.float32))
+        center_pred = tf.squeeze(center_pred)
+        center_gt = tf.sqrt(lr_min*tb_min/(lr_max*tb_max+1e-12))
+        center_pos_loss = -center_gt*tf.log_sigmoid(center_pred) * loc
+        center_neg_loss = -(1.-center_gt)*(-center_pred+tf.log_sigmoid(center_pred)) * (1.-loc)
         center_loss = tf.reduce_sum(center_pos_loss) + tf.reduce_sum(center_neg_loss)
         # center_loss = tf.square(center_pred - center_gt)
 
@@ -340,7 +350,7 @@ class FCOS:
         heatmap_pos_loss = -.25 * tf.pow(1.-tf.sigmoid(heatmap_pred), 2.) * tf.log_sigmoid(heatmap_pred) * heatmap_gt
         heatmap_neg_loss = -.25 * tf.pow(tf.sigmoid(heatmap_pred), 2.) * (-heatmap_pred+tf.log_sigmoid(heatmap_pred)) * (1.-heatmap_gt)
         heatmap_loss = tf.reduce_sum(heatmap_pos_loss) + tf.reduce_sum(heatmap_neg_loss)
-        total_loss = (iou_loss + heatmap_loss  + center_loss) / tf.reduce_sum(heatmap_gt)
+        total_loss = (iou_loss + heatmap_loss + center_loss) / tf.reduce_sum(heatmap_gt)
         return total_loss
 
     def _detect_head(self, bottom):
