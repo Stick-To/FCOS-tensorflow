@@ -12,7 +12,7 @@ import os
 # from utils.voc_classname_encoder import classname_to_ids
 # os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 os.environ['CUDA_VISIBLE_DEVICES'] = '1'
-lr = 0.0003
+lr = 0.01
 batch_size = 8
 buffer_size = 256
 epochs = 160
